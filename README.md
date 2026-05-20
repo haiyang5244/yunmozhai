@@ -1,8 +1,11 @@
 # 韵墨斋 · 填字卡
 
 > 一款辅助古诗文背诵的交互式填字游戏，让记忆不再枯燥。
+>
+<img width="1919" height="804" alt="image" src="https://github.com/user-attachments/assets/80dc796b-7861-4fe4-a46c-0085072894f7" />
 
-![填字卡截图](./screenshot.png)  <!-- 你可以在仓库中添加截图后替换链接 -->
+<img width="1903" height="889" alt="image" src="https://github.com/user-attachments/assets/03e4f2da-bc30-4fbf-a647-69d0b80cdebd" />
+
 
 ## 📖 项目简介
 
