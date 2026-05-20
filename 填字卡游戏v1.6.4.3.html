@@ -1,0 +1,1481 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>韵墨斋 · 填字卡</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
+    body { background: #f5efe7; font-family: 'Segoe UI', 'Noto Sans CJK SC', 'Microsoft YaHei', sans-serif; color: #3e2c1f; min-height: 100vh; position: relative; }
+
+    /* 悬浮球导航（可展开） */
+    .float-nav {
+      position: fixed;
+      left: 12px;
+      top: 80px;
+      z-index: 200;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+    .nav-toggle {
+      width: 44px;
+      height: 44px;
+      background: rgba(230, 215, 190, 0.85);
+      backdrop-filter: blur(8px);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      cursor: pointer;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+      transition: 0.2s;
+      border: 1px solid #d9c7ae;
+      color: #6b5a44;
+      z-index: 10;
+    }
+    .nav-toggle:hover { background: #e6cfaf; }
+    .nav-balls {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      max-height: 0;
+      overflow: hidden;
+      opacity: 0;
+      transition: max-height 0.3s ease, opacity 0.25s ease, margin 0.25s;
+      margin-top: 0;
+    }
+    .nav-balls.expanded {
+      max-height: 300px;
+      opacity: 1;
+      margin-top: 8px;
+    }
+    .nav-ball {
+      width: 44px;
+      height: 44px;
+      background: rgba(230, 215, 190, 0.85);
+      backdrop-filter: blur(8px);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+      cursor: pointer;
+      transition: 0.2s;
+      border: 1px solid #d9c7ae;
+    }
+    .nav-ball:hover { transform: scale(1.05); background: #e6cfaf; }
+
+    /* 自定义弹窗 */
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.25);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 400;
+      animation: fadeIn 0.2s ease;
+    }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    .modal-card {
+      background: #fffaf2;
+      border-radius: 28px;
+      padding: 28px 24px;
+      max-width: 340px;
+      width: 85%;
+      box-shadow: 0 16px 32px rgba(0,0,0,0.08);
+      text-align: center;
+      animation: slideUp 0.25s ease;
+      border: 1px solid #ede3d4;
+    }
+    @keyframes slideUp { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+    .modal-message {
+      font-size: 17px;
+      color: #4e3622;
+      margin-bottom: 24px;
+      line-height: 1.5;
+    }
+    .modal-buttons {
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+    }
+    .modal-btn {
+      padding: 10px 26px;
+      border-radius: 40px;
+      font-size: 15px;
+      font-weight: bold;
+      cursor: pointer;
+      border: none;
+      transition: 0.2s;
+    }
+    .modal-btn.primary {
+      background: #d4b896;
+      color: #fff;
+    }
+    .modal-btn.primary:hover { background: #c4a37a; }
+    .modal-btn.secondary {
+      background: transparent;
+      border: 1px solid #d4b896;
+      color: #4e3622;
+    }
+    .modal-btn.secondary:hover { background: #f5e8d9; }
+
+    .app-container { max-width: 1000px; margin: 0 auto; padding: 20px 80px 30px 80px; }
+    .box-grid { display: flex; flex-wrap: wrap; justify-content: center; gap: 32px; margin-top: 60px; }
+    .card-box { width: 200px; background: #fffaf2; border-radius: 36px; padding: 28px 12px; text-align: center; box-shadow: 0 12px 24px rgba(0,0,0,0.05); cursor: pointer; transition: 0.2s; border: 1px solid #ede3d4; position: relative; }
+    .card-box:hover { transform: translateY(-6px); background: #fffdf9; }
+    .box-preview { font-size: 28px; font-weight: 500; letter-spacing: 4px; margin-bottom: 16px; color: #b87c4f; }
+    .box-stats { font-size: 13px; color: #8f6a42; display: flex; justify-content: center; gap: 16px; }
+    .add-box { background: rgba(230, 215, 190, 0.4); border: 2px dashed #cdb79e; font-size: 48px; display: flex; align-items: center; justify-content: center; color: #b48b5a; }
+    .box-menu-trigger { position: absolute; top: 12px; right: 16px; font-size: 20px; cursor: pointer; color: #b48b5a; z-index: 10; }
+    .float-menu {
+      position: fixed;
+      background: rgba(255, 248, 240, 0.92);
+      backdrop-filter: blur(12px);
+      border-radius: 24px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.05);
+      padding: 8px 0;
+      min-width: 130px;
+      z-index: 300;
+      border: 1px solid #d9c7ae;
+    }
+    .float-menu div { padding: 10px 20px; font-size: 14px; cursor: pointer; transition: 0.1s; color: #4e3622; }
+    .float-menu div:hover { background: #f0e4d4; }
+    .cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 20px; margin-top: 24px; max-height: 70vh; overflow-y: auto; }
+    .card-item { background: #fff5e8; border-radius: 28px; padding: 20px 12px; text-align: center; font-weight: 500; border: 1px solid #e9dbc9; cursor: pointer; transition: 0.1s; }
+    .card-detail { background: #fef7ef; border-radius: 48px; padding: 28px; margin-top: 20px; }
+    .card-detail-title { font-size: 24px; font-weight: bold; border-bottom: 2px solid #e2cfb5; padding-bottom: 12px; margin-bottom: 20px; }
+    .card-detail-body { font-size: 18px; line-height: 1.8; color: #4f3e2c; background: #fffaf4; padding: 20px; border-radius: 32px; white-space: pre-wrap; }
+    .editable-title { font-size: 24px; font-weight: bold; width: 100%; padding: 8px; border: 1px solid #d9c7ae; border-radius: 16px; background: #fffaf4; margin-bottom: 20px; }
+    .editable-body { font-size: 18px; line-height: 1.8; width: 100%; padding: 16px; border: 1px solid #d9c7ae; border-radius: 24px; background: #fffaf4; resize: vertical; min-height: 100px; }
+    .exercise-header { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; margin-bottom: 20px; }
+    .mode-switch { background: #e9dbc9; border-radius: 40px; padding: 6px 20px; cursor: pointer; font-weight: bold; font-size: 18px; }
+    .question-area { background: #fef7ef; border-radius: 48px; padding: 28px 20px; margin: 20px 0; }
+    .line-sentence { font-size: 20px; line-height: 2.2; text-align: center; margin: 16px 0; }
+    .blank-group { display: inline-flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+    .blank-slot { display: inline-block; width: 52px; height: 58px; background: #f3ede5; border-bottom: 3px solid #d9c2a4; text-align: center; font-size: 26px; line-height: 56px; border-radius: 16px 16px 12px 12px; cursor: pointer; }
+    .blank-slot.filled { background: #fef3e0; border-bottom-color: #b48b5a; color: #4e3622; }
+    .blank-slot.correct { background: #cbe6d9; border-bottom-color: #2a7a4b; color: #1d4d32; }
+    .blank-slot.wrong { background: #ffe0db; border-bottom-color: #c23b22; color: #a1301a; position: relative; }
+    .wrong-tooltip { font-size: 12px; color: #c23b22; background: #fff0e6; border-radius: 20px; padding: 2px 8px; margin-left: 6px; white-space: nowrap; display: inline-block; }
+    .word-tile { display: inline-flex; align-items: center; justify-content: center; width: 58px; height: 62px; background: #fff2e2; border-radius: 20px; font-size: 28px; font-weight: 500; box-shadow: 0 3px 8px rgba(0,0,0,0.08); cursor: pointer; transition: 0.05s linear; border: 1px solid #e5cfb5; }
+    .word-tile:active { transform: scale(0.96); }
+    .tiles-area { background: #efe0cf60; border-radius: 48px; padding: 24px 20px; margin: 20px 0; display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; min-height: 140px; }
+    .action-bar { display: flex; justify-content: center; gap: 20px; margin: 20px 0; flex-wrap: wrap; }
+    button { background: #e2d2be; border: none; padding: 10px 28px; border-radius: 60px; font-size: 16px; font-weight: bold; color: #4e3722; cursor: pointer; }
+    .keyboard-btn { background: #bc9a6f; color: white; position: relative; }
+    .inline-input { display: none; margin-left: 12px; background: white; border-radius: 40px; border: 1px solid #d9c2a4; padding: 6px 14px; font-size: 16px; width: 160px; }
+    .green-flash { animation: greenPulse 0.5s ease-out; }
+    @keyframes greenPulse { 0% { background-color: #c8e6d9; } 70% { background-color: #a5d6b7; } 100% { background-color: transparent; } }
+    .toast-message {
+      position: fixed;
+      top: 55%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(44, 42, 39, 0.85);
+      backdrop-filter: blur(10px);
+      color: #f5e7d9;
+      padding: 14px 32px;
+      border-radius: 60px;
+      font-size: 22px;
+      z-index: 350;
+      pointer-events: none;
+      transition: opacity 0.4s ease;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+      white-space: nowrap;
+    }
+
+    /* ---------- 移动端适配 ---------- */
+    @media (max-width: 768px) {
+      .float-nav {
+        left: 8px;
+        top: 60px;
+        gap: 8px;
+      }
+      .nav-toggle {
+        width: 38px;
+        height: 38px;
+        font-size: 20px;
+      }
+      .nav-ball {
+        width: 38px;
+        height: 38px;
+        font-size: 18px;
+      }
+      .nav-balls {
+        gap: 8px;
+      }
+      .app-container {
+        padding: 16px 8px 20px 8px;
+      }
+      .box-grid {
+        gap: 20px;
+        margin-top: 40px;
+        flex-direction: column;
+        align-items: center;
+      }
+      .card-box {
+        width: 80%;
+        max-width: 200px;
+        padding: 20px 8px;
+        border-radius: 28px;
+      }
+      .box-preview {
+        font-size: 22px;
+        letter-spacing: 2px;
+        margin-bottom: 10px;
+      }
+      .box-stats {
+        font-size: 11px;
+        gap: 10px;
+      }
+      .cards-grid {
+        grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+        gap: 12px;
+      }
+      .card-item {
+        padding: 16px 8px;
+        font-size: 14px;
+      }
+      .card-detail {
+        padding: 16px;
+        border-radius: 32px;
+      }
+      .card-detail-title {
+        font-size: 20px;
+        padding-bottom: 8px;
+        margin-bottom: 12px;
+      }
+      .card-detail-body {
+        font-size: 16px;
+        padding: 16px;
+      }
+      .editable-title {
+        font-size: 20px;
+      }
+      .editable-body {
+        font-size: 16px;
+        min-height: 80px;
+      }
+      .exercise-header {
+        margin-bottom: 12px;
+      }
+      .mode-switch {
+        padding: 4px 16px;
+        font-size: 16px;
+      }
+      .question-area {
+        padding: 16px 10px;
+        border-radius: 32px;
+      }
+      .line-sentence {
+        font-size: 18px;
+        margin: 10px 0;
+      }
+      .blank-group {
+        gap: 4px;
+      }
+      .blank-slot {
+        width: 40px;
+        height: 46px;
+        font-size: 20px;
+        line-height: 44px;
+        border-radius: 12px 12px 10px 10px;
+        border-bottom-width: 2px;
+      }
+      .word-tile {
+        width: 44px;
+        height: 48px;
+        font-size: 22px;
+        border-radius: 14px;
+      }
+      .tiles-area {
+        padding: 16px 12px;
+        gap: 8px;
+        min-height: 100px;
+      }
+      .action-bar {
+        gap: 12px;
+      }
+      button {
+        padding: 8px 20px;
+        font-size: 14px;
+      }
+      #toggleSortBtn {
+        padding: 8px 20px;
+        font-size: 16px;
+      }
+      .keyboard-btn {
+        font-size: 14px;
+        padding: 8px 16px;
+      }
+      .inline-input {
+        width: 120px;
+        font-size: 14px;
+        padding: 4px 10px;
+      }
+      .toast-message {
+	    top: 50%;
+        font-size: 12px;
+        padding: 8px 18px;
+      }
+      .modal-card {
+        max-width: 300px;
+        padding: 24px 18px;
+      }
+      .modal-message {
+        font-size: 16px;
+        margin-bottom: 20px;
+      }
+      .modal-btn {
+        padding: 8px 20px;
+        font-size: 14px;
+      }
+      .float-menu div {
+        padding: 8px 16px;
+        font-size: 13px;
+      }
+	  .back-btn {
+        margin-left: 40px;
+      }
+      h2 {
+        text-align: center;
+        margin-left: 40px;
+        margin-right: 40px;
+      }
+    }
+  </style>
+</head>
+<body>
+<div class="float-nav" id="floatNav">
+  <div class="nav-toggle" id="navToggle">§</div>
+  <div class="nav-balls" id="navBalls">
+    <div class="nav-ball" data-nav="home">🏠</div>
+    <div class="nav-ball" data-nav="practice">✍️</div>
+    <div class="nav-ball" data-nav="archive">📦</div>
+    <div class="nav-ball" data-nav="settings">⚙️</div>
+  </div>
+</div>
+<div id="appRoot" class="app-container"></div>
+
+<script>
+  (function() {
+    const STORAGE_KEY = 'WordCardGameV2';
+    let gameData = {
+      collections: [],
+      currentCollectionId: null,
+      currentMode: 'full',
+    };
+    let currentView = 'home';
+    let selectedCollection = null;
+    let selectedCard = null;
+    let currentPracticeQuestion = null;
+    let practiceFillMap = {};
+    let practiceConfirmed = false;
+    let isEditingCard = false;
+    let editBackup = null;
+    let toastTimeout = null;
+	let cardSortMode = 'order'; // 'order' | 'forget' | 'random'
+    let sortedCardIds = [];  // 排序快照，供详情页翻页使用
+
+    // ---------- 自定义 Modal ----------
+    function showModal(message, { confirm = false } = {}) {
+      return new Promise((resolve) => {
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        let buttonsHtml = '';
+        if (confirm) {
+          buttonsHtml = `
+            <div class="modal-buttons">
+              <button class="modal-btn secondary" id="modalCancel">取消</button>
+              <button class="modal-btn primary" id="modalConfirm">确定</button>
+            </div>`;
+        } else {
+          buttonsHtml = `
+            <div class="modal-buttons">
+              <button class="modal-btn primary" id="modalConfirm">知道了</button>
+            </div>`;
+        }
+        overlay.innerHTML = `
+          <div class="modal-card">
+            <div class="modal-message">${message}</div>
+            ${buttonsHtml}
+          </div>`;
+        document.body.appendChild(overlay);
+        const close = (result) => {
+          overlay.remove();
+          resolve(result);
+        };
+        overlay.querySelector('#modalConfirm').addEventListener('click', () => close(true));
+        if (confirm) {
+          overlay.querySelector('#modalCancel').addEventListener('click', () => close(false));
+          overlay.addEventListener('click', (e) => { if (e.target === overlay) close(false); });
+          document.addEventListener('keydown', function escHandler(e) {
+            if (e.key === 'Escape') { close(false); document.removeEventListener('keydown', escHandler); }
+          });
+        } else {
+          overlay.addEventListener('click', (e) => { if (e.target === overlay) close(true); });
+        }
+      });
+    }
+
+    // ---------- 自定义输入弹窗 ----------
+    function showInputModal(title, defaultValue = '') {
+      return new Promise((resolve) => {
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        overlay.innerHTML = `
+          <div class="modal-card">
+            <div class="modal-message">${title}</div>
+            <input type="text" class="editable-title" id="modalInput" value="${defaultValue.replace(/"/g, '&quot;')}" style="margin-bottom:20px; text-align:center;">
+            <div class="modal-buttons">
+              <button class="modal-btn secondary" id="modalInputCancel">取消</button>
+              <button class="modal-btn primary" id="modalInputConfirm">确定</button>
+            </div>
+          </div>`;
+        document.body.appendChild(overlay);
+        const input = overlay.querySelector('#modalInput');
+        input.focus();
+        input.select();
+        const close = (value) => {
+          overlay.remove();
+          resolve(value);
+        };
+        overlay.querySelector('#modalInputConfirm').addEventListener('click', () => {
+          const val = input.value.trim();
+          close(val || null);
+        });
+        overlay.querySelector('#modalInputCancel').addEventListener('click', () => close(null));
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) close(null); });
+        input.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') { close(input.value.trim() || null); }
+          else if (e.key === 'Escape') { close(null); }
+        });
+      });
+    }
+
+    // ---------- 导出备份数据 ----------
+    function exportData() {
+      const dataStr = JSON.stringify(gameData, null, 2);
+      const blob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const date = new Date().toISOString().slice(0,10);
+      a.download = `韵墨斋备份_${date}.json`;
+      a.href = url;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('数据已导出');
+    }
+
+    // ---------- 导入备份数据 ----------
+    function importData() {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.json';
+      input.onchange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        try {
+          const text = await file.text();
+          const imported = JSON.parse(text);
+          if (!imported.collections || !Array.isArray(imported.collections)) {
+            throw new Error('数据格式不正确');
+          }
+          const ok = await showModal('导入将覆盖当前所有数据，确定继续吗？', { confirm: true });
+          if (ok) {
+            gameData = imported;
+            saveData();
+            currentView = 'home';
+            selectedCollection = null;
+            selectedCard = null;
+            currentPracticeQuestion = null;
+            practiceConfirmed = false;
+            render();
+            showToast('数据已成功导入');
+          }
+        } catch (err) {
+          showModal('导入失败，请选择有效的备份文件', { confirm: false });
+        }
+      };
+      input.click();
+    }
+
+    // ---------- 导入卡片集数据 ----------
+    function importTxtFile() {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.txt';
+      input.onchange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const text = await file.text();
+        // 解析可选的 @name 标记
+        let collectionName = file.name.replace('.txt', '') || '新卡片集';
+        let content = text;
+        const firstLineEnd = text.indexOf('\n');
+        const firstLine = firstLineEnd === -1 ? text : text.substring(0, firstLineEnd);
+        if (firstLine.startsWith('@name ')) {
+          collectionName = firstLine.substring(6).trim();
+          // 移除第一行
+          content = firstLineEnd === -1 ? '' : text.substring(firstLineEnd + 1);
+          if (collectionName.length > 20) collectionName = collectionName.slice(0, 20);
+        }
+        const cards = parseMultiCardTxt(content);
+        if (cards.length > 0) {
+          const newCol = {
+            id: 'col_' + Date.now(),
+            name: collectionName,
+            previewChars: collectionName.slice(0, 8) || cards[0]?.title?.slice(0, 8) || '新知',
+            archived: false,
+            cards,
+            summary: {}
+          };
+          newCol.cards.forEach(c => updateCardStatus(c));
+          updateCollectionSummary(newCol);
+          gameData.collections.push(newCol);
+          saveData();
+          render();
+        } else {
+          showModal('解析失败，请确保格式 #标题\n正文', { confirm: false });
+        }
+      };
+      input.click();
+    }
+
+    // ---------- 存储 ----------
+    function saveData() { localStorage.setItem(STORAGE_KEY, JSON.stringify(gameData)); }
+    function loadData() {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) { try { Object.assign(gameData, JSON.parse(raw)); } catch (e) {} }
+      if (!gameData.collections || !gameData.collections.length) initDemoData();
+      if (!gameData.currentMode) gameData.currentMode = 'full';
+      if (gameData.occlusionMode === undefined) gameData.occlusionMode = false;
+      saveData();
+    }
+    function initDemoData() {
+      const demo = {
+        id: 'col_demo', name: '唐诗二首', previewChars: '唐诗', archived: false, cards: [],
+        summary: { untried: 0, practicing: 0, mastered: 0 },
+      };
+      demo.cards.push(parseCardFromText('# 静夜思\n床前明月光，疑是地上霜。举头望明月，低头思故乡。', 'card_demo1'));
+      demo.cards.push(parseCardFromText('# 春晓\n春眠不觉晓，处处闻啼鸟。夜来风雨声，花落知多少。', 'card_demo2'));
+      demo.cards.forEach(c => updateCardStatus(c));
+      updateCollectionSummary(demo);
+      gameData.collections = [demo];
+      gameData.currentCollectionId = demo.id;
+      saveData();
+    }
+
+    function parseCardFromText(txt, fallbackId) {
+      const lines = txt.trim().split(/\r?\n/);
+      let title = '未命名';
+      const bodyLines = [];
+      for (const l of lines) {
+        const trimmed = l.trim();
+        if (trimmed.startsWith('# ')) title = trimmed.substring(2).trim();
+        else if (trimmed && !trimmed.startsWith('---')) bodyLines.push(trimmed);
+      }
+      const fullText = bodyLines.join(' ');
+      const matches = fullText.match(/[^，。；？！]+[，。；？！]/g) || (fullText.trim() ? [fullText] : []);
+      const sentences = matches.map((s) => ({ text: s, startPos: 0, endPos: s.length }));
+      const sentenceData = {};
+      sentences.forEach((_, idx) => { sentenceData[idx] = { correctCount: 0, errorCount: 0, status: 'untried' }; });
+      return { cardId: fallbackId || 'card_' + Date.now() + '_' + Math.random(), title, sentences, sentenceData, cardStatus: 'untried' };
+    }
+
+    function updateCardStatus(card) {
+      let allMastered = true, hasPracticing = false, hasUntried = false;
+      for (const idx in card.sentenceData) {
+        const st = getSentenceStatus(card.sentenceData[idx]);
+        if (st === 'mastered') continue;
+        if (st === 'practicing') hasPracticing = true;
+        if (st === 'untried') hasUntried = true;
+        allMastered = false;
+      }
+      if (allMastered) card.cardStatus = 'mastered';
+      else if (hasPracticing || (!hasUntried && !allMastered)) card.cardStatus = 'practicing';
+      else card.cardStatus = 'untried';
+    }
+
+    function getSentenceStatus(data) {
+      if (data.correctCount >= 21 && (data.correctCount / 3) > data.errorCount) return 'mastered';
+      if (data.correctCount + data.errorCount > 0) return 'practicing';
+      return 'untried';
+    }
+
+    function updateCollectionSummary(col) {
+      let untried = 0, practicing = 0, mastered = 0;
+      col.cards.forEach(c => {
+        if (c.cardStatus === 'untried') untried++;
+        else if (c.cardStatus === 'practicing') practicing++;
+        else mastered++;
+      });
+      col.summary = { untried, practicing, mastered };
+    }
+
+    function extractChinese(str) { return str.replace(/[^\u4e00-\u9fa5]/g, '').split(''); }
+    function shuffleArray(arr) { for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; } return arr; }
+    function getActiveCollections() {
+      return gameData.collections.filter(c => !c.archived);
+    }
+
+    function pickCenterSentence(collection) {
+      const arr = [];
+      for (const card of collection.cards) {
+        for (let idx = 0; idx < card.sentences.length; idx++) {
+          const sd = card.sentenceData[idx];
+          const practices = sd.correctCount + sd.errorCount;
+          let weight = 1 / (practices + 1) + sd.errorCount * 4;
+          if (getSentenceStatus(sd) === 'mastered') weight *= 0.2;
+          arr.push({ card, sIdx: idx, weight });
+        }
+      }
+      if (!arr.length) return null;
+      const total = arr.reduce((a, b) => a + b.weight, 0);
+      let r = Math.random() * total, acc = 0;
+      for (const item of arr) {
+        acc += item.weight;
+        if (r <= acc) return item;
+      }
+      return arr[0];
+    }
+
+    function generateSentenceQuestion(collection, centerInfo, mode) {
+      const { card, sIdx } = centerInfo;
+      const sentences = card.sentences;
+      const prev = sIdx > 0 ? sentences[sIdx - 1] : null;
+      const next = sIdx < sentences.length - 1 ? sentences[sIdx + 1] : null;
+      let hintSide = null;
+      if (prev && next) hintSide = Math.random() < 0.5 ? 'prev' : 'next';
+      else if (prev) hintSide = 'prev';
+      else if (next) hintSide = 'next';
+      const lines = [];
+      if (prev) lines.push({ sentenceIdx: sIdx - 1, blankOriginal: prev.text, isBlank: hintSide !== 'prev', text: hintSide === 'prev' ? prev.text : null });
+      lines.push({ sentenceIdx: sIdx, blankOriginal: sentences[sIdx].text, isBlank: true, text: null });
+      if (next) lines.push({ sentenceIdx: sIdx + 1, blankOriginal: next.text, isBlank: hintSide !== 'next', text: hintSide === 'next' ? next.text : null });
+      const correctChars = [];
+      for (const line of lines) if (line.isBlank && line.blankOriginal) correctChars.push(...extractChinese(line.blankOriginal));
+      let tiles = [];
+      if (mode === 'full') {
+        tiles = [...correctChars];
+      } else if (mode === 'half') {
+        const half = Math.ceil(correctChars.length / 2);
+        const shuffled = [...correctChars]; shuffleArray(shuffled);
+        const present = shuffled.slice(0, half);
+        gameData._halfMissing = shuffled.slice(half);
+        const distractorNeeded = present.length;
+        const poolSet = new Set();
+        for (const oc of collection.cards.filter(c => c.cardId !== card.cardId)) {
+          for (const s of oc.sentences) extractChinese(s.text).forEach(ch => poolSet.add(ch));
+        }
+        const pool = Array.from(poolSet);
+        const chosenDistractors = [];
+        const shuffledPool = [...pool]; shuffleArray(shuffledPool);
+        for (let i = 0; i < distractorNeeded && i < shuffledPool.length; i++) {
+          chosenDistractors.push(shuffledPool[i]);
+        }
+        tiles = [...present, ...chosenDistractors];
+      }
+      if (tiles.length) shuffleArray(tiles);
+      return { type: 'sentence', cardId: card.cardId, cardTitle: card.title, displayLines: lines, correctCharsSequence: correctChars, tilesList: tiles, mode, hintSide };
+    }
+
+    function generateCardQuestion(card, mode) {
+      const sentences = card.sentences;
+      if (!sentences.length) return null;
+      const hintIdx = Math.floor(Math.random() * sentences.length);
+      const lines = [], correctChars = [];
+      for (let i = 0; i < sentences.length; i++) {
+        const isBlank = i !== hintIdx;
+        const original = sentences[i].text;
+        if (isBlank) {
+          correctChars.push(...extractChinese(original));
+          lines.push({ sentenceIdx: i, blankOriginal: original, isBlank: true, text: null });
+        } else {
+          lines.push({ sentenceIdx: i, blankOriginal: null, isBlank: false, text: original });
+        }
+      }
+      return { type: 'card', cardId: card.cardId, cardTitle: card.title, displayLines: lines, correctCharsSequence: correctChars, tilesList: [], mode };
+    }
+
+    function generateNewPractice(collection, mode, specificCard = null) {
+      let q = null;
+      if (mode === 'card') {
+        const card = specificCard || (collection.cards.length ? collection.cards[Math.floor(Math.random() * collection.cards.length)] : null);
+        if (card) q = generateCardQuestion(card, mode);
+      } else {
+        let targetCollection = collection;
+        if (specificCard) {
+          targetCollection = { ...collection, cards: [specificCard] };
+        }
+        const center = pickCenterSentence(targetCollection);
+        if (center) q = generateSentenceQuestion(targetCollection, center, mode);
+      }
+      currentPracticeQuestion = q;
+      practiceConfirmed = false;
+      practiceFillMap = {};
+      if (q) {
+        for (const line of q.displayLines) {
+          if (line.isBlank && line.blankOriginal) {
+            const chs = extractChinese(line.blankOriginal);
+            for (let i = 0; i < chs.length; i++) practiceFillMap[`${line.sentenceIdx}_${i}`] = '';
+          }
+        }
+      }
+    }
+
+    function render() {
+      const root = document.getElementById('appRoot');
+      if (!root) return;
+      if (currentView === 'home') root.innerHTML = renderHome();
+      else if (currentView === 'cardsList' && selectedCollection) root.innerHTML = renderCardsList(selectedCollection);
+      else if (currentView === 'cardDetail' && selectedCard && selectedCollection) root.innerHTML = renderCardDetail(selectedCard, selectedCollection);
+      else if (currentView === 'practice') root.innerHTML = renderPractice();
+      else if (currentView === 'archive') root.innerHTML = renderArchive();
+    }
+
+    function renderHome() {
+      const active = gameData.collections.filter(c => !c.archived);
+      let html = '<div class="box-grid">';
+      for (const col of active.slice(0, 3)) {
+        html += `<div class="card-box" data-col-id="${col.id}">
+                    <div class="box-menu-trigger" data-col-id="${col.id}">⋯</div>
+                    <div class="box-preview">${col.previewChars || col.name.slice(0, 8)}</div>
+                    <div class="box-stats"><span>📘${col.summary.untried || 0}</span><span>✍️${col.summary.practicing || 0}</span><span>✅${col.summary.mastered || 0}</span></div>
+                 </div>`;
+      }
+      if (active.length < 3) {
+        html += '<div class="card-box add-box" id="addCollectionBtn">+</div>';
+      }
+      html += '</div>';
+      return html;
+    }
+
+    function renderCardsList(collection) {
+      const sortLabels = { order: '⇉', forget: '⇝', random: '↝' };
+      const sortTitles = { order: '按顺序', forget: '按遗忘程度', random: '随机' };
+      const sortIcon = sortLabels[cardSortMode] || '⇉';
+      const sortTitle = sortTitles[cardSortMode] || '按顺序';
+
+      let sortedCards = [...collection.cards];
+      if (cardSortMode === 'forget') {
+        sortedCards.sort((a, b) => {
+          const aErrors = Object.values(a.sentenceData).reduce((sum, s) => sum + (s.errorCount || 0), 0);
+          const bErrors = Object.values(b.sentenceData).reduce((sum, s) => sum + (s.errorCount || 0), 0);
+          return bErrors - aErrors;
+        });
+      } else if (cardSortMode === 'random') {
+        for (let i = sortedCards.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [sortedCards[i], sortedCards[j]] = [sortedCards[j], sortedCards[i]];
+        }
+      }
+      // 新增：保存排序后的卡片ID快照
+      sortedCardIds = sortedCards.map(c => c.cardId);
+
+      let html = `<div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <button class="back-btn" id="backHomeBtn">← 返回</button>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <button id="toggleSortBtn" class="occlusion-toggle-btn" title="${sortTitle}">${sortIcon}</button>
+            <button id="toggleOcclusionBtn" class="occlusion-toggle-btn" title="${gameData.occlusionMode ? '遮挡原文' : '无遮挡'}">${gameData.occlusionMode ? '(≧ω≦*)' : '(*°▽°*)'}</button>
+          </div>
+        </div>
+        <h2>${collection.name}</h2>
+        <div class="cards-grid">`;
+      for (const card of sortedCards) {
+        html += `<div class="card-item" data-card-id="${card.cardId}">${card.title}</div>`;
+      }
+      html += `</div></div>`;
+      return html;
+    }
+
+    function renderCardDetail(card, collection) {
+      // 使用排序快照计算索引，若无快照则退回原始顺序
+      let cardIndex = sortedCardIds.indexOf(card.cardId);
+      if (cardIndex === -1) {
+        cardIndex = collection.cards.findIndex(c => c.cardId === card.cardId);
+      }
+      const totalCards = sortedCardIds.length > 0 ? sortedCardIds.length : collection.cards.length;
+      const hasPrev = cardIndex > 0;
+      const hasNext = cardIndex < totalCards - 1;
+      const totalCorrect = Object.values(card.sentenceData).reduce((sum, s) => sum + (s.correctCount || 0), 0);
+      const totalError = Object.values(card.sentenceData).reduce((sum, s) => sum + (s.errorCount || 0), 0);
+
+      if (isEditingCard) {
+        const fullText = card.sentences.map(s => s.text).join('');
+        return `<div><button class="back-btn" id="backToListBtn">← 返回列表</button>
+                    <div class="card-detail">
+                      <input type="text" class="editable-title" id="editTitleInput" value="${card.title.replace(/"/g, '&quot;')}">
+                      <textarea class="editable-body" id="editBodyInput">${fullText}</textarea>
+                      <div style="display:flex; justify-content:center; margin-top:24px; gap:12px;">
+                        <button id="saveEditBtn">💾 保存</button>
+                        <button id="cancelEditBtn">↩ 取消</button>
+                      </div>
+                    </div></div>`;
+      } else {
+        const fullText = card.sentences.map(s => s.text).join('');
+        const showOcclusion = gameData.occlusionMode || false;
+        let bodyHtml = '';
+        if (showOcclusion) {
+          bodyHtml = `<div class="card-detail-body">`;
+          for (let idx = 0; idx < card.sentences.length; idx++) {
+            const sent = card.sentences[idx];
+            const sd = card.sentenceData[idx] || { correctCount: 0, errorCount: 0 };
+            const isWeak = (sd.correctCount / 3) < sd.errorCount;
+            // 深遮：文字透明 + 实心色块；浅遮：加深半透明背景
+            const charStyle = isWeak 
+              ? 'color:transparent; background:#e0d5c5;' 
+              : 'color:#4f3e2c; background:rgba(245, 239, 231, 0.85);';
+            
+            for (const ch of sent.text) {
+              bodyHtml += `<span class="occlusion-sentence" style="${charStyle} cursor:pointer;">${ch}</span>`;
+            }
+          }
+          bodyHtml += `</div>`;
+        } else {
+          bodyHtml = `<div class="card-detail-body">${fullText}</div>`;
+        }
+        return `<div>
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                    <button class="back-btn" id="backToListBtn">← 返回列表</button>
+                    <div style="display:flex; gap:12px; align-items:center;">
+                      <span style="font-size:14px; color:#8f6a42;">${totalCorrect} | ${totalError}</span>
+                      <div class="box-menu-trigger" id="cardDetailMenu" style="position:static; font-size:20px; cursor:pointer; color:#b48b5a;">⋯</div>
+                    </div>
+                  </div>
+                  <div class="card-detail">
+                    <div class="card-detail-title">📖 ${card.title}</div>
+                    ${bodyHtml}
+                    <div style="display:flex; justify-content:center; align-items:center; gap:12px; margin-top:24px;">
+                      <button id="prevCardBtn" style="opacity:${hasPrev ? '1' : '0.4'}; pointer-events:${hasPrev ? 'auto' : 'none'};">← 上一张</button>
+                      <span style="font-size:14px; color:#8f6a42;">| ${cardIndex + 1} / ${totalCards} |</span>
+                      <button id="nextCardBtn" style="opacity:${hasNext ? '1' : '0.4'}; pointer-events:${hasNext ? 'auto' : 'none'};">下一张 →</button>
+                    </div>
+                  </div>
+                </div>`;
+      }
+    }
+
+    function renderPractice() {
+      const collection = getActiveCollections().find(c => c.id === gameData.currentCollectionId);
+      if (!collection) {
+        showModal('当前无可练习卡片集', { confirm: false });
+        currentView = 'home'; render(); return '';
+      }
+      if (!currentPracticeQuestion) generateNewPractice(collection, gameData.currentMode);
+      const q = currentPracticeQuestion;
+      if (!q) return '<div>无法生成题目，请检查卡片内容</div>';
+      const currentCard = collection.cards.find(c => c.cardId === q.cardId);
+      const cardTitle = currentCard ? currentCard.title : '未知卡片';
+      let html = `<div><div class="exercise-header">
+                    <span class="collection-title">📌 ${cardTitle}</span>
+                    <div class="mode-switch" id="modeSwitchBtn" title="全+1 · 半+2 · 无+3 · 卡+3">${modeLabel(gameData.currentMode)}</div>
+                  </div>
+                  <div class="question-area" id="questionArea">`;
+      for (const line of q.displayLines) {
+        if (line.isBlank) {
+          const chs = extractChinese(line.blankOriginal);
+          html += `<div class="line-sentence"><div class="blank-group" data-sentence-idx="${line.sentenceIdx}">`;
+          for (let i = 0; i < chs.length; i++) {
+            const filled = practiceFillMap[`${line.sentenceIdx}_${i}`] || '';
+            let extraClass = '';
+            if (practiceConfirmed && filled) {
+              extraClass = filled === chs[i] ? 'correct' : 'wrong';
+            }
+            html += `<div class="blank-slot ${filled ? 'filled' : ''} ${extraClass}" data-sidx="${line.sentenceIdx}" data-pos="${i}">${filled || '□'}</div>`;
+            if (extraClass === 'wrong' && practiceConfirmed) {
+              html += `<span class="wrong-tooltip">${chs[i]}</span>`;
+            }
+          }
+          html += `</div></div>`;
+        } else {
+          html += `<div class="line-sentence">${line.text}</div>`;
+        }
+      }
+      html += `</div><div class="tiles-area" id="tilesArea">`;
+      for (const ch of (q.tilesList || [])) {
+        html += `<div class="word-tile" data-char="${ch}">${ch}</div>`;
+      }
+      html += `</div><div class="action-bar">
+                <button id="confirmBtn">完成！🚀</button>
+                <button id="nextRandomBtn">冲冲冲！下一个🔥</button>
+                <span style="position:relative;"><button id="keyboardBtn" class="keyboard-btn">召唤文字✏️</button><input type="text" id="inlineWordInput" class="inline-input" placeholder="输入汉字后回车"></span>
+              </div>`;
+      if (gameData.currentMode !== 'card') html += '<div style="text-align:center;font-size:12px;color:#9b7c5f;">💡 上下滑动可切换前后句/卡片</div>';
+      html += '</div>';
+      return html;
+    }
+
+    function renderArchive() {
+      const archived = gameData.collections.filter(c => c.archived);
+      let html = '<div><button class="back-btn" id="backHomeBtn">← 返回</button><h2>📦 归档区</h2><div class="box-grid">';
+      for (const col of archived) {
+        html += `<div class="card-box" data-col-id="${col.id}" style="cursor:default;">
+                    <div class="box-preview">${col.name.slice(0, 6)}</div>
+                    <div class="box-stats">📦 已归档</div>
+                    <div class="box-menu-trigger" data-col-id="${col.id}" data-action="archiveMenu">⋯</div>
+                 </div>`;
+      }
+      html += '</div></div>';
+      return html;
+    }
+
+    function modeLabel(m) {
+      const map = { full: '全', half: '半', none: '无', card: '卡' };
+      return map[m] || '全';
+    }
+
+    function showToast(msg, duration = 1800) {
+      const existing = document.querySelector('.toast-message');
+      if (existing) existing.remove();
+      const div = document.createElement('div');
+      div.className = 'toast-message';
+      div.innerText = msg;
+      document.body.appendChild(div);
+      if (toastTimeout) clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => { div.style.opacity = '0'; setTimeout(() => div.remove(), 300); }, duration);
+    }
+
+    function fillFirstEmptySlot(char) {
+      if (!currentPracticeQuestion) return;
+      for (const key in practiceFillMap) {
+        if (practiceFillMap[key] === '') {
+          practiceFillMap[key] = char;
+          const idx = currentPracticeQuestion.tilesList.indexOf(char);
+          if (idx !== -1) currentPracticeQuestion.tilesList.splice(idx, 1);
+          refreshPracticeDom();
+          return;
+        }
+      }
+      showToast('没有空缺格子了，请先确认或使用移回功能');
+    }
+
+    function refreshPracticeDom() {
+      const q = currentPracticeQuestion;
+      if (!q) return;
+      const questionArea = document.getElementById('questionArea');
+      const tilesArea = document.getElementById('tilesArea');
+      if (!questionArea || !tilesArea) { render(); return; }
+      const slots = questionArea.querySelectorAll('.blank-slot');
+      slots.forEach(slot => {
+        const sidx = slot.getAttribute('data-sidx');
+        const pos = slot.getAttribute('data-pos');
+        const key = `${sidx}_${pos}`;
+        const ch = practiceFillMap[key] || '';
+        slot.innerText = ch || '□';
+        if (ch) slot.classList.add('filled');
+        else slot.classList.remove('filled');
+        slot.classList.remove('correct', 'wrong');
+      });
+      tilesArea.innerHTML = '';
+      for (const ch of q.tilesList) {
+        const tile = document.createElement('div');
+        tile.className = 'word-tile';
+        tile.setAttribute('data-char', ch);
+        tile.innerText = ch;
+        tilesArea.appendChild(tile);
+      }
+    }
+
+    function confirmAnswer() {
+      if (practiceConfirmed) return;
+      const q = currentPracticeQuestion;
+      if (!q) return;
+      const col = getActiveCollections().find(c => c.id === gameData.currentCollectionId);
+      const card = col?.cards.find(c => c.cardId === q.cardId);
+      if (!card) return;
+      for (const line of q.displayLines) {
+        if (line.isBlank && line.blankOriginal) {
+          const correctChars = extractChinese(line.blankOriginal);
+          let allCorrect = true;
+          for (let i = 0; i < correctChars.length; i++) {
+            const filled = practiceFillMap[`${line.sentenceIdx}_${i}`] || '';
+            if (filled !== correctChars[i]) allCorrect = false;
+          }
+          const sdata = card.sentenceData[line.sentenceIdx];
+          if (allCorrect) {
+            const increments = { full: 1, half: 2, none: 3, card: 3 };
+            sdata.correctCount += increments[gameData.currentMode] || 1;
+          }
+          else sdata.errorCount++;
+        }
+      }
+      updateCardStatus(card);
+      updateCollectionSummary(col);
+      saveData();
+      practiceConfirmed = true;
+      render();
+      document.querySelectorAll('.blank-slot.correct').forEach(el => el.classList.add('green-flash'));
+      // 根据本次答题是否有错误，显示不同的反馈颜文字
+      let hasAnyError = false;
+      for (const line of q.displayLines) {
+        if (line.isBlank && line.blankOriginal) {
+          const correctChars = extractChinese(line.blankOriginal);
+          for (let i = 0; i < correctChars.length; i++) {
+            const filled = practiceFillMap[`${line.sentenceIdx}_${i}`] || '';
+            if (filled !== correctChars[i]) { hasAnyError = true; break; }
+          }
+        }
+        if (hasAnyError) break;
+      }
+      if (hasAnyError) {
+        showToast('（´Д`）');
+      } else {
+        showToast('(๑•̀ㅂ•́)و✧');
+      }
+    }
+
+    function parseMultiCardTxt(content) {
+      const normalized = content.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+      const blocks = normalized.split(/\n?---\n?/);
+      const cards = [];
+      for (const block of blocks) {
+        const trimmed = block.trim();
+        if (trimmed) {
+          cards.push(parseCardFromText(trimmed, 'import_' + Date.now() + '_' + Math.random()));
+        }
+      }
+      return cards;
+    }
+
+    async function globalClickHandler(e) {
+      const target = e.target;
+
+      if (target.closest('#navToggle')) {
+        document.getElementById('navBalls').classList.toggle('expanded');
+        return;
+      }
+
+      const navBall = target.closest('[data-nav]');
+      if (navBall) {
+        if (currentView === 'practice' && !practiceConfirmed) {
+          if (navBall.dataset.nav !== 'settings') {
+            const ok = await showModal('当前题目未确认，切换将丢失进度，是否继续？', { confirm: true });
+            if (!ok) {
+              document.getElementById('navBalls').classList.remove('expanded');
+              return;
+            }
+          }
+        }
+        const nav = navBall.getAttribute('data-nav');
+        if (nav === 'home') { currentView = 'home'; selectedCard = null; }
+        else if (nav === 'practice') {
+          const activeCols = getActiveCollections();
+          if (activeCols.length === 0) {
+            await showModal('当前无可练习卡片集', { confirm: false });
+            return;
+          }
+          const col = activeCols.find(c => c.id === gameData.currentCollectionId);
+          if (col) { currentView = 'practice'; generateNewPractice(col, gameData.currentMode); }
+          else {
+            gameData.currentCollectionId = activeCols[0].id;
+            saveData();
+            currentView = 'practice';
+            generateNewPractice(activeCols[0], gameData.currentMode);
+          }
+        } else if (nav === 'archive') { currentView = 'archive'; }
+        else if (nav === 'settings') {
+          const existing = document.querySelector('.float-menu');
+          if (existing) existing.remove();
+          const menuDiv = document.createElement('div');
+          menuDiv.className = 'float-menu';
+          const rect = navBall.getBoundingClientRect();
+          menuDiv.style.left = rect.right + 8 + 'px';
+          menuDiv.style.top = rect.top + 'px';
+          menuDiv.innerHTML = `<div id="exportDataMenu">📤 导出数据</div><div id="importDataMenu">📥 导入数据</div>`;
+          document.body.appendChild(menuDiv);
+          const closeMenu = (e) => {
+            if (!menuDiv.contains(e.target) && e.target !== navBall) {
+              menuDiv.remove();
+              document.body.removeEventListener('click', closeMenu);
+            }
+          };
+          setTimeout(() => document.body.addEventListener('click', closeMenu), 0);
+          menuDiv.querySelector('#exportDataMenu').addEventListener('click', () => {
+            menuDiv.remove();
+            exportData();
+          });
+          menuDiv.querySelector('#importDataMenu').addEventListener('click', () => {
+            menuDiv.remove();
+            importData();
+          });
+          document.getElementById('navBalls').classList.remove('expanded');
+          return;
+        }
+        render();
+        document.getElementById('navBalls').classList.remove('expanded');
+        return;
+      }
+
+      if (!target.closest('.float-nav')) {
+        document.getElementById('navBalls').classList.remove('expanded');
+      }
+
+      if (target.closest('#addCollectionBtn')) {
+        importTxtFile();
+        return;
+      }
+
+      const cardBox = target.closest('.card-box');
+      if (cardBox && !target.closest('.box-menu-trigger')) {
+        const colId = cardBox.getAttribute('data-col-id');
+        const col = gameData.collections.find(c => c.id === colId);
+        if (col && !col.archived) {
+          selectedCollection = col;
+          currentView = 'cardsList';
+          isEditingCard = false;
+		  cardSortMode = 'order';
+          render();
+        }
+        return;
+      }
+
+	  // 卡片详情右上角菜单
+      if (target.closest('#cardDetailMenu') && selectedCollection && selectedCard) {
+        const existing = document.querySelector('.float-menu');
+        if (existing) existing.remove();
+        const menuDiv = document.createElement('div');
+        menuDiv.className = 'float-menu';
+        const rect = target.closest('#cardDetailMenu').getBoundingClientRect();
+        menuDiv.style.left = rect.right - 130 + 'px'; // 右对齐防止溢出
+        menuDiv.style.top = rect.bottom + 5 + 'px';
+        menuDiv.innerHTML = `<div id="menuStartPractice">✍️ 开始冒险</div><div id="menuEditCard">✏️ 编辑</div>`;
+        document.body.appendChild(menuDiv);
+        const closeMenu = (e) => {
+          if (!menuDiv.contains(e.target) && !e.target.closest('#cardDetailMenu')) {
+            menuDiv.remove();
+            document.body.removeEventListener('click', closeMenu);
+          }
+        };
+        setTimeout(() => document.body.addEventListener('click', closeMenu), 0);
+        menuDiv.querySelector('#menuStartPractice').addEventListener('click', () => {
+          menuDiv.remove();
+          gameData.currentCollectionId = selectedCollection.id;
+          generateNewPractice(selectedCollection, gameData.currentMode, selectedCard);
+          currentView = 'practice';
+          render();
+        });
+        menuDiv.querySelector('#menuEditCard').addEventListener('click', () => {
+          menuDiv.remove();
+          isEditingCard = true;
+          editBackup = { title: selectedCard.title, sentences: selectedCard.sentences.map(s => ({ ...s })) };
+          render();
+        });
+        return;
+      }
+
+      if (target.closest('.box-menu-trigger')) {
+        handleBoxMenu(target.closest('.box-menu-trigger'));
+        return;
+      }
+
+      // 排序切换
+      if (target.closest('#toggleSortBtn')) {
+        const modes = ['order', 'forget', 'random'];
+        const idx = modes.indexOf(cardSortMode);
+        cardSortMode = modes[(idx + 1) % 3];
+        render();
+        return;
+      }
+
+      // 遮挡模式开关
+      if (target.closest('#toggleOcclusionBtn')) {
+        gameData.occlusionMode = !gameData.occlusionMode;
+        saveData();
+        render();
+        return;
+      }
+
+      // 遮挡模式下点击字符去除遮挡
+      if (target.closest('.occlusion-sentence')) {
+        const charSpan = target.closest('.occlusion-sentence');
+        charSpan.style.background = 'transparent';
+        charSpan.style.color = '#4f3e2c';
+        return;
+      }
+
+      if (target.closest('#backHomeBtn')) {
+        if (currentView === 'practice' && !practiceConfirmed) {
+          const ok = await showModal('当前题目未确认，切换将丢失进度，是否继续？', { confirm: true });
+          if (!ok) return;
+        }
+        currentView = 'home'; render();
+        return;
+      }
+      if (target.closest('#backToListBtn')) {
+        if (currentView === 'practice' && !practiceConfirmed) {
+          const ok = await showModal('当前题目未确认，切换将丢失进度，是否继续？', { confirm: true });
+          if (!ok) return;
+        }
+        isEditingCard = false;
+        currentView = 'cardsList'; render();
+        return;
+      }
+
+      const cardItem = target.closest('.card-item');
+      if (cardItem && selectedCollection) {
+        const cardId = cardItem.getAttribute('data-card-id');
+        const card = selectedCollection.cards.find(c => c.cardId === cardId);
+        if (card) {
+          selectedCard = card;
+          isEditingCard = false;
+          currentView = 'cardDetail';
+          render();
+        }
+        return;
+      }
+
+      // 上一张卡片（基于排序快照）
+      if (target.closest('#prevCardBtn') && selectedCollection && selectedCard) {
+        let idx = sortedCardIds.indexOf(selectedCard.cardId);
+        if (idx === -1) idx = selectedCollection.cards.findIndex(c => c.cardId === selectedCard.cardId);
+        if (idx > 0) {
+          const prevId = sortedCardIds.length > 0 ? sortedCardIds[idx - 1] : selectedCollection.cards[idx - 1]?.cardId;
+          selectedCard = selectedCollection.cards.find(c => c.cardId === prevId);
+          render();
+        }
+        return;
+      }
+
+      // 下一张卡片（基于排序快照）
+      if (target.closest('#nextCardBtn') && selectedCollection && selectedCard) {
+        let idx = sortedCardIds.indexOf(selectedCard.cardId);
+        if (idx === -1) idx = selectedCollection.cards.findIndex(c => c.cardId === selectedCard.cardId);
+        const total = sortedCardIds.length > 0 ? sortedCardIds.length : selectedCollection.cards.length;
+        if (idx < total - 1) {
+          const nextId = sortedCardIds.length > 0 ? sortedCardIds[idx + 1] : selectedCollection.cards[idx + 1]?.cardId;
+          selectedCard = selectedCollection.cards.find(c => c.cardId === nextId);
+          render();
+        }
+        return;
+      }
+	  
+
+      if (target.closest('#saveEditBtn') && selectedCard && selectedCollection) {
+        const titleInput = document.getElementById('editTitleInput');
+        const bodyInput = document.getElementById('editBodyInput');
+        if (!titleInput || !bodyInput) return;
+        const newTitle = titleInput.value.trim();
+        const newBody = bodyInput.value.trim();
+        if (!newTitle) { showModal('标题不能为空', { confirm: false }); return; }
+        const matches = newBody.match(/[^，。；？！]+[，。；？！]/g) || (newBody ? [newBody] : []);
+        if (matches.length === 0) { showModal('正文必须包含可解析的句子', { confirm: false }); return; }
+        selectedCard.title = newTitle;
+        selectedCard.sentences = matches.map((t) => ({ text: t, startPos: 0, endPos: t.length }));
+        const newData = {};
+        selectedCard.sentences.forEach((_, idx) => { newData[idx] = { correctCount: 0, errorCount: 0, status: 'untried' }; });
+        selectedCard.sentenceData = newData;
+        updateCardStatus(selectedCard);
+        updateCollectionSummary(selectedCollection);
+        saveData();
+        isEditingCard = false;
+        render();
+        return;
+      }
+
+      if (target.closest('#cancelEditBtn')) {
+        const ok = await showModal('修改未保存，确定放弃吗？', { confirm: true });
+        if (ok) {
+          if (editBackup) {
+            selectedCard.title = editBackup.title;
+            selectedCard.sentences = editBackup.sentences;
+            editBackup = null;
+          }
+          isEditingCard = false;
+          render();
+        }
+        return;
+      }
+
+      if (target.closest('#modeSwitchBtn')) {
+        if (practiceConfirmed && !(await showModal('切换模式会重置当前题目，确定吗？', { confirm: true }))) return;
+        if (!practiceConfirmed) {
+          const ok = await showModal('当前题目未确认，切换将丢失进度，是否继续？', { confirm: true });
+          if (!ok) return;
+        }
+        const order = ['full', 'half', 'none', 'card'];
+        const idx = order.indexOf(gameData.currentMode);
+        gameData.currentMode = order[(idx + 1) % 4];
+        saveData();
+        if (currentView === 'practice') {
+          const col = gameData.collections.find(c => c.id === gameData.currentCollectionId);
+          if (col) generateNewPractice(col, gameData.currentMode);
+          render();
+        }
+        return;
+      }
+
+      if (target.closest('#confirmBtn')) {
+        if (practiceConfirmed) return;
+        for (const key in practiceFillMap) {
+          if (practiceFillMap[key] === '') {
+            await showModal('请填满所有空白格后再确认', { confirm: false });
+            return;
+          }
+        }
+        confirmAnswer();
+        return;
+      }
+
+      if (target.closest('#nextRandomBtn')) {
+        if (!practiceConfirmed) {
+          const ok = await showModal('当前题目未确认，重新抽题会丢失进度，确定吗？', { confirm: true });
+          if (!ok) return;
+        }
+        const col = getActiveCollections().find(c => c.id === gameData.currentCollectionId);
+        if (col) { generateNewPractice(col, gameData.currentMode); practiceConfirmed = false; render(); }
+        return;
+      }
+
+      if (target.closest('#keyboardBtn')) {
+        const input = document.getElementById('inlineWordInput');
+        if (input) {
+          const isVisible = input.style.display === 'inline-block';
+          input.style.display = isVisible ? 'none' : 'inline-block';
+          if (!isVisible) input.focus();
+        }
+        return;
+      }
+
+      const wordTile = target.closest('.word-tile');
+      if (wordTile && !practiceConfirmed) {
+        const ch = wordTile.getAttribute('data-char');
+        fillFirstEmptySlot(ch);
+        return;
+      }
+
+      const blankSlot = target.closest('.blank-slot');
+      if (blankSlot && !practiceConfirmed) {
+        const sidx = blankSlot.getAttribute('data-sidx');
+        const pos = blankSlot.getAttribute('data-pos');
+        const key = `${sidx}_${pos}`;
+        const curChar = practiceFillMap[key];
+        if (curChar) {
+          practiceFillMap[key] = '';
+          currentPracticeQuestion.tilesList.push(curChar);
+          refreshPracticeDom();
+        }
+        return;
+      }
+
+      const menuItem = target.closest('.float-menu div');
+      if (menuItem) {
+        const menu = menuItem.closest('.float-menu');
+        const colId = menu._colId;
+        const col = gameData.collections.find(c => c.id === colId);
+        if (!col) return;
+        const action = menuItem.getAttribute('data-action');
+        if (action === 'rename') {
+          const newName = await showInputModal('编辑卡片集名称', col.name);
+          if (newName) {
+            col.name = newName;
+            col.previewChars = newName.slice(0, 8);
+          }
+        } else if (action === 'archive') {
+          col.archived = true;
+        } else if (action === 'unarchive') {
+          if (gameData.collections.filter(c => !c.archived).length >= 3) showModal('专注背诵内容，不要超过三个哦', { confirm: false });
+          else col.archived = false;
+        } else if (action === 'delete') {
+          const ok = await showModal(`确定删除「${col.name}」吗？数据不可恢复。`, { confirm: true });
+          if (ok) {
+            gameData.collections = gameData.collections.filter(c => c.id !== col.id);
+            if (gameData.currentCollectionId === col.id) gameData.currentCollectionId = null;
+          }
+        }
+        saveData();
+        menu.remove();
+        render();
+      }
+    }
+
+    async function wheelHandler(e) {
+      if (!e.target.closest('#appRoot')) return;
+      const qArea = document.querySelector('.question-area');
+      if (!qArea || !qArea.contains(e.target)) return;
+      if (currentView === 'practice' && !practiceConfirmed) {
+        e.preventDefault();
+        const ok = await showModal('当前题目未确认，切换将丢失进度，是否继续？', { confirm: true });
+        if (!ok) return;
+      }
+      const col = getActiveCollections().find(c => c.id === gameData.currentCollectionId);
+      if (!col) return;
+      if (gameData.currentMode === 'card') {
+        const cards = col.cards;
+        const curIdx = cards.findIndex(c => c.cardId === currentPracticeQuestion?.cardId);
+        const newIdx = e.deltaY > 0 ? curIdx + 1 : curIdx - 1;
+        if (newIdx >= 0 && newIdx < cards.length) {
+          generateNewPractice(col, 'card', cards[newIdx]);
+        } else {
+          showToast('已是首张/末张卡片');
+        }
+      } else {
+        generateNewPractice(col, gameData.currentMode);
+        showToast('已切换到新题目');
+      }
+      practiceConfirmed = false;
+      render();
+      e.preventDefault();
+    }
+
+    function keyboardHandler(e) {
+      if (e.key !== 'Enter') return;
+      const input = e.target;
+      if (input.id === 'inlineWordInput') {
+        const val = input.value.trim();
+        const chars = val.replace(/[^\u4e00-\u9fa5]/g, '').split('');
+        if (chars.length && currentPracticeQuestion) {
+          for (const ch of chars) {
+            currentPracticeQuestion.tilesList.push(ch);
+          }
+          refreshPracticeDom();
+        }
+        input.value = '';
+        input.style.display = 'none';
+      }
+    }
+
+    function handleBoxMenu(trigger) {
+      const colId = trigger.getAttribute('data-col-id');
+      const col = gameData.collections.find(c => c.id === colId);
+      if (!col) return;
+      const existingMenu = document.querySelector('.float-menu');
+      if (existingMenu) existingMenu.remove();
+      const menuDiv = document.createElement('div');
+      menuDiv.className = 'float-menu';
+      menuDiv._colId = colId;
+      const rect = trigger.getBoundingClientRect();
+      menuDiv.style.left = rect.left + 'px';
+      menuDiv.style.top = (rect.bottom + 5) + 'px';
+      if (col.archived) {
+        menuDiv.innerHTML = `<div data-action="unarchive">📂 移回主页</div><div data-action="delete">🗑️ 删除卡片集</div>`;
+      } else {
+        menuDiv.innerHTML = `<div data-action="rename">✏️ 编辑名称</div><div data-action="archive">📦 移动到归档</div><div data-action="delete">🗑️ 删除</div>`;
+      }
+      document.body.appendChild(menuDiv);
+      const closeMenu = (e) => {
+        if (!menuDiv.contains(e.target) && e.target !== trigger) {
+          menuDiv.remove();
+          document.body.removeEventListener('click', closeMenu);
+        }
+      };
+      setTimeout(() => document.body.addEventListener('click', closeMenu), 0);
+    }
+
+    loadData();
+    render();
+    document.body.addEventListener('click', globalClickHandler);
+    document.body.addEventListener('wheel', wheelHandler, { passive: false });
+    document.body.addEventListener('keypress', keyboardHandler);
+  })();
+</script>
+</body>
+</html>
